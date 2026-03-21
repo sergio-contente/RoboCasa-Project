@@ -1,0 +1,6 @@
+[submodule "deps/robocasa"]
+	path = deps/robocasa
+	url = https://github.com/robocasa/robocasa.git
+[submodule "deps/robosuite"]
+	path = deps/robosuite
+	url = https://github.com/ARISE-Initiative/robosuite.git
