@@ -1,73 +1,22 @@
+from dataclasses import dataclass
 from typing import Any, SupportsFloat, TypeVar
 
 import gymnasium as gym
 import numpy as np
 
+@dataclass
+class Observation:
+    video: np.ndarray
+    other: np.ndarray
 
-ActType = TypeVar("ActType")
-ObsType = TypeVar("ObsType")
-WrapperActType = TypeVar("WrapperActType")
-WrapperObsType = TypeVar("WrapperObsType")
-
-class ActionObservationWrapper(gym.Wrapper[WrapperObsType, WrapperActType, ObsType, ActType]):
+class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, dict]):
     """Superclass of wrappers that can modify observations using :meth:`observation` and
     actions using :meth:`action` for :meth:`reset` and :meth:`step`.
     """
-
-    def __init__(self, env: gym.Env[ObsType, ActType]):
+    def __init__(self, env: gym.Env[dict, dict], observation_spaces_to_discard: list[str]):
         """Constructor for the observation and action wrapper."""
-        gym.Wrapper.__init__(self, env)
-
-    def reset(
-        self, *, seed: int | None = None, options: dict[str, Any] | None = None
-    ) -> tuple[WrapperObsType, dict[str, Any]]:
-        """Modifies the :attr:`env` after calling :meth:`reset`, returning a modified observation using :meth:`self.observation`."""
-        obs, info = self.env.reset(seed=seed, options=options)
-        return self.observation(obs), info
-
-    def step(
-        self, action: WrapperActType
-    ) -> tuple[WrapperObsType, SupportsFloat, bool, bool, dict[str, Any]]:
-        """Modifies the :attr:`env` after calling :meth:`step` using :meth:`self.observation` on the returned observations."""
-        observation, reward, terminated, truncated, info = self.env.step(self.action(action))
-        return self.observation(observation), reward, terminated, truncated, info
-    
-    def action(self, action: WrapperActType) -> ActType:
-        """Returns a modified action before :meth:`env.step` is called.
-
-        Args:
-            action: The original :meth:`step` actions
-
-        Returns:
-            The modified actions
-        """
-        raise NotImplementedError
-    
-    def observation(self, observation: ObsType) -> WrapperObsType:
-        """Returns a modified observation.
-
-        Args:
-            observation: The :attr:`env` observation
-
-        Returns:
-            The modified observation
-        """
-        raise NotImplementedError
-
-
-class ActionObservationTransformer(ActionObservationWrapper[dict, np.ndarray, dict, dict]):
-    """
-    This is the actual environment transformer we are going to use.
-    """
-    def __init__(self, env: gym.Env, observation_spaces_to_discard: list[str]):
-        """
-        Constructor.
-
-        :param env: Environment we are going to wrap
-        :param observation_spaces_to_discard: List of all the observation we want to ignore.
-        """
         assert isinstance(env.observation_space, gym.spaces.Dict)
-        ActionObservationWrapper.__init__(self, env)
+        gym.Wrapper.__init__(self, env)
 
         self.observation_spaces_to_discard = observation_spaces_to_discard
         new_action_space = gym.spaces.utils.flatten_space(env.action_space)
@@ -101,11 +50,26 @@ class ActionObservationTransformer(ActionObservationWrapper[dict, np.ndarray, di
         )
         self._intermediary_observation_space_other = gym.spaces.Dict(other_space)
 
+        # pyrefly: ignore bad-argument-type
         self._observation_space = gym.spaces.Dict({
             "video": self._intermediary_observation_space_video,
             "other": gym.spaces.flatten_space(self._intermediary_observation_space_other)
         })
 
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[Observation, dict[str, Any]]:
+        """Modifies the :attr:`env` after calling :meth:`reset`, returning a modified observation using :meth:`self.observation`."""
+        obs, info = self.env.reset(seed=seed, options=options)
+        return self.observation(obs), info
+
+    def step(
+        self, action: np.ndarray
+    ) -> tuple[Observation, SupportsFloat, bool, bool, dict[str, Any]]:
+        """Modifies the :attr:`env` after calling :meth:`step` using :meth:`self.observation` on the returned observations."""
+        observation, reward, terminated, truncated, info = self.env.step(self.action(action))
+        return self.observation(observation), reward, terminated, truncated, info
+    
     def _sort_spaces(self, spaces):
         """
         Separate video observations from the rest, and filter out unwanted dimensions
@@ -124,20 +88,19 @@ class ActionObservationTransformer(ActionObservationWrapper[dict, np.ndarray, di
             
         return (video, other)
 
-    def action(self, action):
+    def action(self, action: np.ndarray):
         return gym.spaces.utils.unflatten(self.env.action_space, action)
 
-    def observation(self, observation: dict):
+    def observation(self, observation: dict) -> Observation:
         video_value, other_value = self._sort_spaces(observation)
-        output = {
-            "video": np.concatenate(list(video_value.values()), axis=-1),
-            "other": gym.spaces.utils.flatten(
+
+        return Observation(
+            video=np.concatenate(list(video_value.values()), axis=-1),
+            other=np.array(gym.spaces.utils.flatten(
                 self._intermediary_observation_space_other,
                 other_value
-            )
-        }
-
-        return output
+            ))
+        )
 
 if __name__ == "__main__":
     import robocasa

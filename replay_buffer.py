@@ -48,10 +48,9 @@ if __name__ == "__main__":
     import robocasa
     from tqdm import tqdm
 
-    from environment_transformer import ActionObservationTransformer
+    import environment_transformer
     
-
-    env = ActionObservationTransformer(
+    env = environment_transformer.ActionObservationTransformer(
         gym.make(
             "robocasa/PickPlaceCounterToCabinet",
             split="pretrain", # use 'pretrain' or 'target' kitchen scenes and objects
@@ -77,6 +76,7 @@ if __name__ == "__main__":
     observations, actions, rewards, next_observations, dones = buffer.random_batch(BATCH_SIZE)
 
     assert observations.shape[0] == BATCH_SIZE
+    assert isinstance(observations[0], environment_transformer.Observation)
     assert next_observations.shape[0] == BATCH_SIZE
     assert len(actions) == BATCH_SIZE
     assert len(rewards) == BATCH_SIZE

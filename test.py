@@ -1,15 +1,24 @@
 import gymnasium as gym
 import robocasa
-from robocasa.utils.env_utils import run_random_rollouts
+import torch
+from tqdm import tqdm
 
-env = gym.make(
-    "robocasa/PickPlaceCounterToCabinet",
-    split="pretrain", # use 'pretrain' or 'target' kitchen scenes and objects
-    seed=0 # seed environment as needed. set seed=None to run unseeded
+from replay_buffer import ReplayBuffer
+from environment_transformer import ActionObservationTransformer
+
+env = ActionObservationTransformer(
+    gym.make(
+        "robocasa/CloseCabinet",
+        split="pretrain", # use 'pretrain' or 'target' kitchen scenes and objects
+        seed=0 # seed environment as needed. set seed=None to run unseeded
+    ),
+    [ "annotation.human.task_description" ]
 )
 
-# run rollouts with random actions and save video
-run_random_rollouts(
-    env, num_rollouts=3, num_steps=100, video_path="./test.mp4"
-)
+print(f"""==========
+Is CUDA available: {torch.cuda.is_available()}
 
+Environment: {env}
+==========""")
+
+buffer = ReplayBuffer()
