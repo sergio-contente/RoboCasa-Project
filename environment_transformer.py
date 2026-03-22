@@ -140,6 +140,8 @@ class ActionObservationTransformer(ActionObservationWrapper[dict, np.ndarray, di
         return output
 
 if __name__ == "__main__":
+    import robocasa
+    
     env = ActionObservationTransformer(
         gym.make(
             "robocasa/PickPlaceCounterToCabinet",
@@ -149,8 +151,9 @@ if __name__ == "__main__":
         [ "annotation.human.task_description" ]
     )
 
-    print(f"""==========
-    Environment: {env}
-    Action space: {env.action_space}
-    Observation space: {env.observation_space}
-    ==========""")
+    print(
+f"""==========
+Environment: {env}
+Action space: {env.action_space}
+Observation space: {env.observation_space}
+==========""")
