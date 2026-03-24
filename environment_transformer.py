@@ -13,6 +13,8 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
     """Superclass of wrappers that can modify observations using :meth:`observation` and
     actions using :meth:`action` for :meth:`reset` and :meth:`step`.
     """
+    video_spaces_name: list[str]
+    
     def __init__(self, env: gym.Env[dict, dict], observation_spaces_to_discard: list[str]):
         """Constructor for the observation and action wrapper."""
         assert isinstance(env.observation_space, gym.spaces.Dict)
@@ -33,10 +35,13 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
         other_space: dict[str, gym.spaces.Space]
         video_space, other_space = self._sort_spaces(env.observation_space)
 
+        self.video_spaces_name = list(video_space.keys())
         video_spaces: list[gym.spaces.Box] = list(video_space.values())
         video_dtype = video_spaces[0].dtype
         assert video_dtype is not None
+
         for i in range(len(video_spaces)):
+            # Check that all the video feeds are the same
             assert isinstance(video_spaces[i], gym.spaces.Box)
             if i > 0:
                 assert video_spaces[i].low.shape == video_spaces[i-1].low.shape
@@ -55,6 +60,14 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
             "video": self._intermediary_observation_space_video,
             "other": gym.spaces.flatten_space(self._intermediary_observation_space_other)
         })
+
+    def observation_sample(self) -> Observation:
+        #pyrefly: ignore bad-assignment
+        sample: dict = self.observation_space.sample()
+        return Observation(
+            other=np.array(sample["other"]),
+            video=np.array(sample["video"]),
+        )
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
@@ -101,13 +114,32 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
                 other_value
             ))
         )
+    
+    def reverse_action(self, action: dict) -> np.ndarray:
+        return np.array(
+            gym.spaces.utils.flatten(self.env.action_space, action)
+        )
+
+    def reverse_observation(self, observation: Observation) -> dict[str, Any]:
+        output = {}
+        output.update(
+            gym.spaces.utils.unflatten(
+                self._intermediary_observation_space_other,
+                observation.other
+            )
+        )
+
+        nb_channels_per_dimension = observation.video.shape[-1] // len(self.video_spaces_name)
+        for i, video_dimension in enumerate(self.video_spaces_name):
+            output[video_dimension] = observation.video[..., nb_channels_per_dimension*i : nb_channels_per_dimension*(i+1)]
+        return output
 
 if __name__ == "__main__":
     import robocasa
     
     env = ActionObservationTransformer(
         gym.make(
-            "robocasa/PickPlaceCounterToCabinet",
+            "robocasa/OpenElectricKettleLid",
             split="pretrain", # use 'pretrain' or 'target' kitchen scenes and objects
             seed=0 # seed environment as needed. set seed=None to run unseeded
         ),
@@ -120,3 +152,50 @@ Environment: {env}
 Action space: {env.action_space}
 Observation space: {env.observation_space}
 ==========""")
+
+    print("Check the observation functions")
+    observation_from_env: dict = env.env.observation_space.sample()
+    observation_from_transformer: Observation = env.observation_sample()
+
+    new_observation_from_transformer = env.observation(env.reverse_observation(observation_from_transformer))
+    np.testing.assert_array_equal(
+        new_observation_from_transformer.other,
+        observation_from_transformer.other
+    )
+    np.testing.assert_array_equal(
+        new_observation_from_transformer.video,
+        observation_from_transformer.video
+    )
+
+    new_observation_from_env = env.reverse_observation(env.observation(observation_from_env))
+    assert (
+        set(new_observation_from_env.keys()) == set(observation_from_env.keys()),
+        f"Missing keys: {set(new_observation_from_env.keys()).difference(set(observation_from_env.keys()))}"
+    )
+    for key in new_observation_from_env.keys():
+        np.testing.assert_array_equal(
+            new_observation_from_env[key],
+            observation_from_env[key]
+        )
+
+
+    print("Check the action functions")
+    action_from_env: dict = env.env.action_space.sample()
+    action_from_transformer: np.ndarray = np.array(env.action_space.sample())
+
+    new_action_from_transformer = env.reverse_action(env.action(action_from_transformer))
+    np.testing.assert_array_equal(
+        new_action_from_transformer,
+        action_from_transformer
+    )
+
+    new_action_from_env = env.action(env.reverse_action(action_from_env))
+    assert (
+        set(action_from_env.keys()) == set(action_from_env.keys()),
+        f"Missing keys: {set(new_action_from_env.keys()).difference(set(action_from_env.keys()))}"
+    )
+    for key in new_action_from_env.keys():
+        np.testing.assert_array_equal(
+            new_action_from_env[key],
+            action_from_env[key]
+        )
