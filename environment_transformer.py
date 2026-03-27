@@ -18,7 +18,7 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
     def __init__(self, env: gym.Env[dict, dict], observation_spaces_to_discard: list[str]):
         """Constructor for the observation and action wrapper."""
         assert isinstance(env.observation_space, gym.spaces.Dict)
-        gym.Wrapper.__init__(self, env)
+        super(ActionObservationTransformer, self).__init__(env)
 
         self.observation_spaces_to_discard = observation_spaces_to_discard
         new_action_space = gym.spaces.utils.flatten_space(env.action_space)
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         ),
         [ "annotation.human.task_description" ]
     )
-
+    
     print(
 f"""==========
 Environment: {env}
@@ -168,10 +168,10 @@ Observation space: {env.observation_space}
     )
 
     new_observation_from_env = env.reverse_observation(env.observation(observation_from_env))
-    assert (
-        set(new_observation_from_env.keys()) == set(observation_from_env.keys()),
-        f"Missing keys: {set(new_observation_from_env.keys()).difference(set(observation_from_env.keys()))}"
-    )
+    missing_keys = set(new_observation_from_env.keys()) ^ set(observation_from_env.keys())
+    assert missing_keys == set(env.observation_spaces_to_discard), \
+        f"Missing keys: {missing_keys}"
+
     for key in new_observation_from_env.keys():
         np.testing.assert_array_equal(
             new_observation_from_env[key],
@@ -190,10 +190,9 @@ Observation space: {env.observation_space}
     )
 
     new_action_from_env = env.action(env.reverse_action(action_from_env))
-    assert (
-        set(action_from_env.keys()) == set(action_from_env.keys()),
-        f"Missing keys: {set(new_action_from_env.keys()).difference(set(action_from_env.keys()))}"
-    )
+    assert set(new_action_from_env.keys()) == set(action_from_env.keys()), \
+        f"Missing keys: {set(new_action_from_env.keys()) ^ (set(action_from_env.keys()))}"
+    
     for key in new_action_from_env.keys():
         np.testing.assert_array_equal(
             new_action_from_env[key],
