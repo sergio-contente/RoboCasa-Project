@@ -63,7 +63,12 @@ class DatasetManager:
             output
         )
 
-def reset_based_on_episode(env: ActionObservationTransformer, ep_metadata: dict, model: str, initial_state_flatten: np.ndarray):
+def reset_based_on_episode(
+    env: ActionObservationTransformer,
+    ep_metadata: dict,
+    model: str,
+    initial_state_flatten: np.ndarray
+):
     # == Based on playback_dataset.do_reset function ==
     env.get_wrapper_attr("set_ep_meta")(ep_metadata)
     observation, _ = env.reset()
@@ -73,7 +78,6 @@ def reset_based_on_episode(env: ActionObservationTransformer, ep_metadata: dict,
     
     sim = env.get_wrapper_attr("sim")
     sim.reset()
-    
     sim.set_state_from_flattened(initial_state_flatten)
     sim.forward()
     # == ==
@@ -92,15 +96,17 @@ def load_dataset(env: ActionObservationTransformer, env_name: str, nb_episodes_t
         ep_metadata, initial_state_flatten, model, actions = dataset.get_episode_actions(ind)
         reset_based_on_episode(env, ep_metadata, model, initial_state_flatten)
 
-        observation, _ = env.reset()
+        observation = None
         for action in tqdm(actions):
+            prev_observation = observation
             action = env.reverse_action(action)
-            next_observation, reward, terminated, truncated, _info = env.step(action)
+            observation, reward, terminated, truncated, _info = env.step(action)
             done = terminated or truncated
-            buffer.add_sample(observation, action, reward, next_observation, done)
+            if prev_observation is not None:
+                buffer.add_sample(prev_observation, action, reward, observation, done)
             if done:
                 break
-            observation = next_observation
+            
         env.get_wrapper_attr("unset_ep_meta")()
     
     return buffer
