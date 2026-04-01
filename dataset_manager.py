@@ -1,4 +1,3 @@
-from environment_transformer import ActionObservationTransformer
 import json
 from pathlib import Path
 
@@ -7,6 +6,13 @@ import pandas as pd
 import robocasa
 import robocasa.utils.dataset_registry
 import robocasa.utils.lerobot_utils as LU
+from tqdm import tqdm
+
+from environment_transformer import (
+    ActionObservationTransformer,
+    Observation
+)
+from replay_buffer import ReplayBuffer
 
 class DatasetManager:
     dataset_path: Path
@@ -71,3 +77,30 @@ def reset_based_on_episode(env: ActionObservationTransformer, ep_metadata: dict,
     sim.set_state_from_flattened(initial_state_flatten)
     sim.forward()
     # == ==
+
+
+def load_dataset(env: ActionObservationTransformer, env_name: str, nb_episodes_to_load: int):
+    buffer: ReplayBuffer[Observation, np.ndarray] = ReplayBuffer()
+    dataset = DatasetManager(
+        env_name,
+        split="pretrain",
+        source="human",
+    )
+
+    for ind in range(nb_episodes_to_load):
+        print(f"Loading episode {ind+1} / {nb_episodes_to_load}")
+        ep_metadata, initial_state_flatten, model, actions = dataset.get_episode_actions(ind)
+        reset_based_on_episode(env, ep_metadata, model, initial_state_flatten)
+
+        observation, _ = env.reset()
+        for action in tqdm(actions):
+            action = env.reverse_action(action)
+            next_observation, reward, terminated, truncated, _info = env.step(action)
+            done = terminated or truncated
+            buffer.add_sample(observation, action, reward, next_observation, done)
+            if done:
+                break
+            observation = next_observation
+        env.get_wrapper_attr("unset_ep_meta")()
+    
+    return buffer
