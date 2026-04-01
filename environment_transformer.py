@@ -1,13 +1,16 @@
 from dataclasses import dataclass
-from typing import Any, SupportsFloat, TypeVar
+from typing import Any, SupportsFloat
 
+import torch
 import gymnasium as gym
 import numpy as np
 
+import utils
+
 @dataclass
 class Observation:
-    video: np.ndarray
-    other: np.ndarray
+    video: torch.Tensor
+    other: torch.Tensor
 
 class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, dict]):
     """Superclass of wrappers that can modify observations using :meth:`observation` and
@@ -65,8 +68,8 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
         #pyrefly: ignore bad-assignment
         sample: dict = self.observation_space.sample()
         return Observation(
-            other=np.array(sample["other"]),
-            video=np.array(sample["video"]),
+            other=utils.get_tensor(sample["other"]),
+            video=utils.get_tensor(sample["video"]),
         )
 
     def reset(
@@ -108,11 +111,15 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
         video_value, other_value = self._sort_spaces(observation)
 
         return Observation(
-            video=np.concatenate(list(video_value.values()), axis=-1),
-            other=np.array(gym.spaces.utils.flatten(
-                self._intermediary_observation_space_other,
-                other_value
-            ))
+            video=utils.get_tensor(
+                np.concatenate(list(video_value.values()), axis=-1)
+            ),
+            other=utils.get_tensor(
+                np.array(gym.spaces.utils.flatten(
+                    self._intermediary_observation_space_other,
+                    other_value
+                ))
+            )
         )
     
     def reverse_action(self, action: dict) -> np.ndarray:

@@ -14,7 +14,7 @@ class ReplayBuffer(Generic[Observation, Action]):
     """
     buffer: deque[tuple[Observation, Action, SupportsFloat, Observation, bool]]
 
-    def __init__(self, buffer_size: int = 10_000):
+    def __init__(self, buffer_size: int = 2_000):
         self.buffer = deque(maxlen=buffer_size)
 
     def add_sample(

@@ -1,18 +1,22 @@
-from dataset_manager import load_dataset
 import os
 
 import gymnasium as gym
-import imageio
-import numpy as np
-from tqdm import tqdm
+import robocasa
+#import imageio
+import torch
+#from tqdm import tqdm
 
-from dataset_manager import DatasetManager, reset_based_on_episode
-from replay_buffer import ReplayBuffer
-from environment_transformer import ActionObservationTransformer, Observation
+from environment_transformer import ActionObservationTransformer
+from model.sac import SACAgent
+import utils
 
 VIDEO_PATH = "./test.mp4"
 CAMERA_NAME = "video.robot0_eye_in_hand"
 ENV_NAME = "OpenElectricKettleLid"
+
+os.makedirs(os.path.dirname(VIDEO_PATH), exist_ok=True)
+print(f"Is CUDA available: {torch.cuda.is_available()}")
+utils.set_device(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
 print(f"Loading: {ENV_NAME}")
 env = ActionObservationTransformer(
@@ -24,12 +28,11 @@ env = ActionObservationTransformer(
     [ "annotation.human.task_description" ]
 )
 
-dataset = load_dataset(env, ENV_NAME, 5)
-
-os.makedirs(os.path.dirname(VIDEO_PATH), exist_ok=True)
-with imageio.get_writer(VIDEO_PATH, fps=20) as video_handler:
-    print(f"=== Saving the steps in {VIDEO_PATH} ===")
-
-    for (obs, _, _, _, _) in tqdm(dataset.buffer):
-        proper_obs = env.reverse_observation(obs)
-        video_handler.append_data(proper_obs[CAMERA_NAME])
+sac = SACAgent(env)
+sac.learn(5)
+#with imageio.get_writer(VIDEO_PATH, fps=20) as video_handler:
+#    print(f"=== Saving the steps in {VIDEO_PATH} ===")
+#
+#    for (obs, _, _, _, _) in tqdm(dataset.buffer):
+#        proper_obs = env.reverse_observation(obs)
+#        video_handler.append_data(proper_obs[CAMERA_NAME])
