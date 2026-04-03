@@ -1,0 +1,66 @@
+Fri Apr  3 03:17:33 2026
+ERROR: could not initialize GLFW
+
+Fri Apr  3 03:23:57 2026
+ERROR: could not initialize GLFW
+
+Fri Apr  3 03:24:33 2026
+ERROR: could not initialize GLFW
+
+Fri Apr  3 03:25:21 2026
+ERROR: could not initialize GLFW
+
+Fri Apr  3 17:29:24 2026
+WARNING: Linesearch objective is not convex
+
+Fri Apr  3 21:20:33 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:20:41 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:21:02 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:21:10 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:21:29 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:24:47 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:25:07 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:25:13 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:26:01 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:28:33 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:28:56 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:29:01 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:29:21 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:39:02 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:39:23 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:39:30 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+
+Fri Apr  3 21:39:54 2026
+WARNING: OpenGL error 0x501 in or before mjr_makeContext
+

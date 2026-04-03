@@ -1,0 +1,16 @@
+===========================================
+EVALUATION SUMMARY — V2 MODEL
+===========================================
+Model : checkpoints_v2/open_kettle_v2_470000_steps
+
+Stage 0 (easy):
+  Success rate       : 0/25 = 0.0%
+  Mean reward        : 1152.54 ± 1555.10
+  Mean episode length: 500.0 steps
+
+Stage 2 (hard):
+  Success rate       : 0/25 = 0.0%
+  Mean reward        : 998.11 ± 1606.55
+  Mean episode length: 500.0 steps
+
+===========================================
