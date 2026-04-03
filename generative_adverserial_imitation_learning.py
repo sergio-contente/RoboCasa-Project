@@ -44,8 +44,8 @@ class SB3DictWrapper(gym.ObservationWrapper):
         )
 
     def observation(self, obs):
-        video_tensor = obs.video.numpy().transpose(2, 0, 1)
-        return {"video": video_tensor, "other": obs.other.numpy()}
+        video_tensor = obs.video.cpu().numpy().transpose(2, 0, 1)
+        return {"video": video_tensor, "other": obs.other.cpu().numpy()}
 
 
 class ExtractPretrainedModel(BaseFeaturesExtractor):
@@ -98,8 +98,8 @@ def convert_to_trajectories(replay_buffer):
     for step in replay_buffer.buffer:
         obs, action, _, _, done = step
 
-        video_tensor = obs.video.numpy().transpose(2, 0, 1)
-        other_tensor = obs.other.numpy()
+        video_tensor = obs.video.cpu().numpy().transpose(2, 0, 1)
+        other_tensor = obs.other.cpu().numpy()
 
         obs_dicts.append({"video": video_tensor, "other": other_tensor})
         acts.append(action)
@@ -141,9 +141,6 @@ def main():
                 "robocasa/OpenElectricKettleLid",
                 split="pretrain",
                 seed=42,
-                has_renderer=False,
-                has_offscreen_renderer=True,
-                use_camera_obs=True,
             ),
             observation_spaces_to_discard=["annotation.human.task_description"],
         )
@@ -155,7 +152,7 @@ def main():
     train_replay_buffer = load_dataset(template_env, "OpenElectricKettleLid", 50)
     expert_trajectories = convert_to_trajectories(train_replay_buffer)
 
-    venv = DummyVecEnv(make_env)
+    venv = DummyVecEnv([make_env])
 
     policy_kwargs = dict(
         features_extractor_class=ExtractPretrainedModel,
