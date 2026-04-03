@@ -10,7 +10,7 @@ from imitation.algorithms.adversarial.gail import GAIL
 from imitation.rewards.reward_nets import BasicRewardNet
 from imitation.util.networks import RunningNorm
 from imitation.data.types import Trajectory
-
+from imitation.util.logger import configure
 import robocasa
 import robosuite
 from dataset_manager import load_dataset
@@ -30,33 +30,28 @@ class SB3DictWrapper(gym.ObservationWrapper):
             video_space.shape[0],
             video_space.shape[1],
         )
+        total_dim = int(np.prod(video_shape)) + int(other_space.shape[0])
 
-        self.observation_space = gym.spaces.Dict(
-            {
-                "video": gym.spaces.Box(
-                    low=video_space.low.transpose(2, 0, 1),
-                    high=video_space.high.transpose(2, 0, 1),
-                    shape=video_shape,
-                    dtype=video_space.dtype,
-                ),
-                "other": other_space,
-            }
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=(total_dim,), dtype=np.float32
         )
 
     def observation(self, obs):
-        video_tensor = obs.video.cpu().numpy().transpose(2, 0, 1)
-        return {"video": video_tensor, "other": obs.other.cpu().numpy()}
+        video_flat = obs.video.cpu().numpy().transpose(2, 0, 1).flatten()
+        other_flat = obs.other.cpu().numpy().flatten()
+        return np.concatenate([video_flat, other_flat]).astype(np.float32)
 
 
 class ExtractPretrainedModel(BaseFeaturesExtractor):
     def __init__(self, observation_space, features_dim=512):
         super().__init__(observation_space, features_dim)
 
-        video_channels = observation_space.spaces["video"].shape[0]
-        other_dim = observation_space.spaces["other"].shape[0]
+        self.video_shape = (9, 256, 256)
+        self.video_dim = int(np.prod(self.video_shape))
+        other_dim = observation_space.shape[0] - self.video_dim
 
         self.cnn = nn.Sequential(
-            nn.Conv2d(video_channels, 32, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(self.video_shape[0], 32, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -85,43 +80,44 @@ class ExtractPretrainedModel(BaseFeaturesExtractor):
                 param.requires_grad = False
 
     def forward(self, observations) -> torch.Tensor:
-        video = self.cnn(observations["video"])
-        merged = torch.cat([video, observations["other"]], dim=-1)
+        video_flat = observations[:, : self.video_dim]
+        other = observations[:, self.video_dim :]
+
+        video = video_flat.view(-1, *self.video_shape)
+        video = self.cnn(video)
+        merged = torch.cat([video, other], dim=-1)
         return self.mlp(merged)
 
 
 def convert_to_trajectories(replay_buffer):
     trajectories = []
-    obs_dicts = []
+    obs_arrays = []
     acts = []
 
     for step in replay_buffer.buffer:
         obs, action, _, _, done = step
 
-        video_tensor = obs.video.cpu().numpy().transpose(2, 0, 1)
-        other_tensor = obs.other.cpu().numpy()
-
-        obs_dicts.append({"video": video_tensor, "other": other_tensor})
+        obs_arrays.append(obs)
         acts.append(action)
 
         if done:
-            obs_dicts.append(obs_dicts[-1])
+            obs_arrays.append(obs_arrays[-1])
 
             trajectory = Trajectory(
-                obs=np.array(obs_dicts),
+                obs=np.array(obs_arrays),
                 acts=np.array(acts),
                 infos=None,
                 terminal=True,
             )
             trajectories.append(trajectory)
 
-            obs_dicts = []
+            obs_arrays = []
             acts = []
 
     if len(acts) > 0:
-        obs_dicts.append(obs_dicts[-1])
+        obs_arrays.append(obs_arrays[-1])
         trajectory = Trajectory(
-            obs=np.array(obs_dicts),
+            obs=np.array(obs_arrays),
             acts=np.array(acts),
             infos=None,
             terminal=True,
@@ -176,6 +172,10 @@ def main():
         normalize_input_layer=RunningNorm,
     )
 
+    custom_logger = configure(
+        folder="gail_tensorboard_logs", format_strs=["tensorboard", "stdout"]
+    )
+
     gail_trainer = GAIL(
         demonstrations=expert_trajectories,
         demo_batch_size=64,
@@ -185,6 +185,7 @@ def main():
         gen_algo=learner,
         reward_net=reward_net,
         allow_variable_horizon=True,
+        custom_logger=custom_logger,
     )
 
     gail_trainer.train(total_timesteps=100_000)
