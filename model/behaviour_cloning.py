@@ -160,6 +160,10 @@ class BehaviourCloning(nn.Module):
             else:
                 patience_counter += 1
 
+            print(
+                f"Epoch {epoch+1}/{epochs} - Train Loss: {avg_train_loss:.4f} - Val Loss: {avg_val_loss:.4f} - Patience: {patience_counter}/{patience}"
+            )
+
             if patience_counter >= patience:
                 self.load_state_dict(
                     torch.load(

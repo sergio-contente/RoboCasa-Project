@@ -96,7 +96,7 @@ def convert_to_trajectories(replay_buffer):
     acts = []
 
     for step in replay_buffer.buffer:
-        obs, action, reward, next_obs, done = step
+        obs, action, _, _, done = step
 
         video_tensor = obs.video.numpy().transpose(2, 0, 1)
         other_tensor = obs.other.numpy()
