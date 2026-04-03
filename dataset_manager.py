@@ -84,7 +84,7 @@ def reset_based_on_episode(
 
 
 def load_dataset(env: ActionObservationTransformer, env_name: str, nb_episodes_to_load: int):
-    buffer: ReplayBuffer[Observation, np.ndarray] = ReplayBuffer()
+    buffer: ReplayBuffer = ReplayBuffer()
     dataset = DatasetManager(
         env_name,
         split="pretrain",

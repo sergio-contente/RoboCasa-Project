@@ -1,14 +1,14 @@
 from collections import deque
-from typing import Generic, SupportsFloat, TypeVar
+from typing import SupportsFloat
 import random
 
 import numpy as np
+import numpy.typing as npt
 
+from environment_transformer import Observation
 
-Observation = TypeVar("Observation")
-Action = TypeVar("Action")
-
-class ReplayBuffer(Generic[Observation, Action]):
+Action = np.ndarray
+class ReplayBuffer:
     """
     A class used to save and replay data.
     """
@@ -30,12 +30,50 @@ class ReplayBuffer(Generic[Observation, Action]):
         """
         self.buffer.append((observation, action, reward, next_observation, done))
 
-    def random_batch(self, batch_size: int):
+    def random_batch(self, batch_size: int) -> tuple[Observation, npt.NDArray[np.float32], npt.NDArray[np.float32], Observation, npt.NDArray[np.bool]]:
         """
         Return a batch of size `batch_size`.
         """
-        observations, actions, rewards, next_observations, dones = zip(*random.sample(self.buffer, batch_size))
-        return np.stack(observations), actions, rewards, np.stack(next_observations), dones
+        samples: list[tuple[Observation, Action, SupportsFloat, Observation, bool]] = random.sample(self.buffer, batch_size)
+        return (
+            # Initial observations
+            Observation(
+                video=torch.concat([
+                    sample[0].video.unsqueeze(0)
+                    for sample in samples
+                ], dim=0),
+                other=torch.concat([
+                    sample[0].other.unsqueeze(0)
+                    for sample in samples
+                ], dim=0)
+            ),
+            # Action
+            np.concat([
+                np.expand_dims(sample[1], axis=0)
+                for sample in samples
+            ], axis=0),
+            # Rewards
+            np.array([
+                sample[2]
+                for sample in samples
+            ]),
+            # next observations
+            Observation(
+                video=torch.concat([
+                    sample[3].video.unsqueeze(0)
+                    for sample in samples
+                ], dim=0),
+                other=torch.concat([
+                    sample[3].other.unsqueeze(0)
+                    for sample in samples
+                ], dim=0)
+            ),
+            # is done?
+            np.array([
+                sample[4]
+                for sample in samples
+            ])
+        )
 
 if __name__ == "__main__":
     """
@@ -79,9 +117,12 @@ if __name__ == "__main__":
     BATCH_SIZE = 10
     observations, actions, rewards, next_observations, dones = buffer.random_batch(BATCH_SIZE)
 
-    assert observations.shape[0] == BATCH_SIZE
-    assert isinstance(observations[0], environment_transformer.Observation)
-    assert next_observations.shape[0] == BATCH_SIZE
     assert len(actions) == BATCH_SIZE
     assert len(rewards) == BATCH_SIZE
     assert len(dones) == BATCH_SIZE
+    assert isinstance(observations, environment_transformer.Observation)
+    assert isinstance(next_observations, environment_transformer.Observation)
+    assert observations.video.shape[0] == BATCH_SIZE
+    assert observations.other.shape[0] == BATCH_SIZE
+    assert next_observations.video.shape[0] == BATCH_SIZE
+    assert next_observations.other.shape[0] == BATCH_SIZE
