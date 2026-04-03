@@ -127,22 +127,26 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
             gym.spaces.utils.flatten(self.env.action_space, action)
         )
 
-    def reverse_observation(self, observation: Observation) -> dict[str, Any]:
+    def reverse_observation(self, observation: Observation) -> dict[str, np.ndarray]:
         output = {}
         output.update(
             gym.spaces.utils.unflatten(
                 self._intermediary_observation_space_other,
-                observation.other
+                observation.other.cpu()
             )
         )
 
         nb_channels_per_dimension = observation.video.shape[-1] // len(self.video_spaces_name)
         for i, video_dimension in enumerate(self.video_spaces_name):
-            output[video_dimension] = observation.video[..., nb_channels_per_dimension*i : nb_channels_per_dimension*(i+1)]
+            output[video_dimension] = (
+                observation.video[..., nb_channels_per_dimension*i : nb_channels_per_dimension*(i+1)]
+                    .cpu().numpy()
+            )
         return output
 
 if __name__ == "__main__":
     import robocasa
+    utils.set_device(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     
     env = ActionObservationTransformer(
         gym.make(
@@ -166,12 +170,12 @@ Observation space: {env.observation_space}
 
     new_observation_from_transformer = env.observation(env.reverse_observation(observation_from_transformer))
     np.testing.assert_array_equal(
-        new_observation_from_transformer.other,
-        observation_from_transformer.other
+        new_observation_from_transformer.other.cpu().numpy(),
+        observation_from_transformer.other.cpu().numpy()
     )
     np.testing.assert_array_equal(
-        new_observation_from_transformer.video,
-        observation_from_transformer.video
+        new_observation_from_transformer.video.cpu().numpy(),
+        observation_from_transformer.video.cpu().numpy()
     )
 
     new_observation_from_env = env.reverse_observation(env.observation(observation_from_env))

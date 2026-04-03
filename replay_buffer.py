@@ -47,8 +47,12 @@ if __name__ == "__main__":
     import gymnasium as gym
     import robocasa
     from tqdm import tqdm
-
+    import torch
+    
     import environment_transformer
+    import utils
+
+    utils.set_device(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     
     env = environment_transformer.ActionObservationTransformer(
         gym.make(

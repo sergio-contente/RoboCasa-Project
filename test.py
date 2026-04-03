@@ -23,13 +23,20 @@ env = ActionObservationTransformer(
     gym.make(
         f"robocasa/{ENV_NAME}",
         split="pretrain", # use 'pretrain' or 'target' kitchen scenes and objects
-        seed=0 # seed environment as needed. set seed=None to run unseeded
+        seed=0, # seed environment as needed. set seed=None to run unseeded
+        renderer="mjviewer"
     ),
     [ "annotation.human.task_description" ]
 )
 
 sac = SACAgent(env)
 sac.learn(5)
+
+#import imageio
+#from tqdm import tqdm
+#from dataset_manager import load_dataset
+#
+#dataset = load_dataset(env, ENV_NAME, 1)
 #with imageio.get_writer(VIDEO_PATH, fps=20) as video_handler:
 #    print(f"=== Saving the steps in {VIDEO_PATH} ===")
 #
