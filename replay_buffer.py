@@ -1,5 +1,5 @@
 from collections import deque
-from typing import SupportsFloat
+from typing import SupportsFloat, Generic, TypeVar
 import random
 
 import numpy as np
@@ -7,8 +7,8 @@ import numpy.typing as npt
 
 from environment_transformer import Observation
 
-Action = np.ndarray
-class ReplayBuffer:
+Action = TypeVar("Action")
+class ReplayBuffer(Generic[Action]):
     """
     A class used to save and replay data.
     """
@@ -30,28 +30,45 @@ class ReplayBuffer:
         """
         self.buffer.append((observation, action, reward, next_observation, done))
 
-    def random_batch(self, batch_size: int) -> tuple[Observation, npt.NDArray[np.float32], npt.NDArray[np.float32], Observation, npt.NDArray[np.bool]]:
+    def _concat_actions(self, actions: list[Action]) -> Action:
+        action_type = type(actions[0])
+        if action_type is np.ndarray:
+            actions_concatenated = np.concat([
+                np.expand_dims(act, axis=0)
+                for act in actions
+            ], axis=0)
+            return actions_concatenated
+        elif hasattr(action_type, "concat"):
+            return  action_type.concat(actions)
+        else:
+            raise ValueError("We don't know how to concatenate this")
+
+
+    def random_batch(self, batch_size: int) -> tuple[Observation, Action, npt.NDArray[np.float32], Observation, npt.NDArray[np.bool]]:
         """
         Return a batch of size `batch_size`.
         """
+        assert batch_size > 0
         samples: list[tuple[Observation, Action, SupportsFloat, Observation, bool]] = random.sample(self.buffer, batch_size)
+
+        actions_concatenated: Action = self._concat_actions([
+            sample[1] for sample in samples
+        ])
+        
         return (
             # Initial observations
             Observation(
-                video=torch.concat([
-                    sample[0].video.unsqueeze(0)
+                video=utils.concat_tensors([
+                    sample[0].video
                     for sample in samples
-                ], dim=0),
-                other=torch.concat([
-                    sample[0].other.unsqueeze(0)
+                ]),
+                other=utils.concat_tensors([
+                    sample[0].other
                     for sample in samples
-                ], dim=0)
+                ])
             ),
             # Action
-            np.concat([
-                np.expand_dims(sample[1], axis=0)
-                for sample in samples
-            ], axis=0),
+            actions_concatenated,
             # Rewards
             np.array([
                 sample[2]
@@ -59,14 +76,14 @@ class ReplayBuffer:
             ]),
             # next observations
             Observation(
-                video=torch.concat([
-                    sample[3].video.unsqueeze(0)
+                video=utils.concat_tensors([
+                    sample[3].video
                     for sample in samples
-                ], dim=0),
-                other=torch.concat([
-                    sample[3].other.unsqueeze(0)
+                ]),
+                other=utils.concat_tensors([
+                    sample[3].other
                     for sample in samples
-                ], dim=0)
+                ]),
             ),
             # is done?
             np.array([

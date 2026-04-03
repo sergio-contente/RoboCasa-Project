@@ -110,3 +110,36 @@ def load_dataset(env: ActionObservationTransformer, env_name: str, nb_episodes_t
         env.get_wrapper_attr("unset_ep_meta")()
     
     return buffer
+
+if __name__ == "__main__":
+    import gymnasium as gym
+    import robocasa
+    import imageio
+    import torch
+    from tqdm import tqdm
+
+    import utils
+    from environment_transformer import ActionObservationTransformer
+    
+    ENV_NAME = "OpenElectricKettleLid"
+    VIDEO_PATH = "./test.mp4"
+    CAMERA_NAME = "video.robot0_eye_in_hand"
+
+    utils.set_device(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+    env = ActionObservationTransformer(
+        gym.make(
+            f"robocasa/{ENV_NAME}",
+            split="pretrain", # use 'pretrain' or 'target' kitchen scenes and objects
+            seed=0, # seed environment as needed. set seed=None to run unseeded
+            renderer="mjviewer"
+        ),
+        [ "annotation.human.task_description" ]
+    )
+
+    dataset = load_dataset(env, ENV_NAME, 1)
+    with imageio.get_writer(VIDEO_PATH, fps=20) as video_handler:
+        print(f"=== Saving the steps in {VIDEO_PATH} ===")
+        for (obs, _, _, _, _) in tqdm(dataset.buffer):
+            proper_obs = env.reverse_observation(obs)
+            video_handler.append_data(proper_obs[CAMERA_NAME])
