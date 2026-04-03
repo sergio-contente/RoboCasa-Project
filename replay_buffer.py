@@ -1,34 +1,37 @@
 from collections import deque
-from typing import SupportsFloat, Generic, TypeVar
+from typing import Generic, TypeVar
 import random
 
 import numpy as np
 import numpy.typing as npt
+import torch
 
 from environment_transformer import Observation
+import utils
 
 Action = TypeVar("Action")
 class ReplayBuffer(Generic[Action]):
     """
     A class used to save and replay data.
     """
-    buffer: deque[tuple[Observation, Action, SupportsFloat, Observation, bool]]
+    buffer: deque[tuple[Observation, Action, Action, torch.Tensor, Observation, bool]]
 
-    def __init__(self, buffer_size: int = 2_000):
+    def __init__(self, buffer_size: int = 2_500):
         self.buffer = deque(maxlen=buffer_size)
 
     def add_sample(
         self,
         observation: Observation,
+        prev_action: Action,
         action: Action,
-        reward: SupportsFloat,
+        reward: torch.Tensor,
         next_observation: Observation,
         done: bool
     ):
         """
         Add a transition tuple.
         """
-        self.buffer.append((observation, action, reward, next_observation, done))
+        self.buffer.append((observation, prev_action, action, reward, next_observation, done))
 
     def _concat_actions(self, actions: list[Action]) -> Action:
         action_type = type(actions[0])
@@ -44,16 +47,12 @@ class ReplayBuffer(Generic[Action]):
             raise ValueError("We don't know how to concatenate this")
 
 
-    def random_batch(self, batch_size: int) -> tuple[Observation, Action, npt.NDArray[np.float32], Observation, npt.NDArray[np.bool]]:
+    def random_batch(self, batch_size: int) -> tuple[Observation, Action, Action, torch.Tensor, Observation, npt.NDArray[np.bool]]:
         """
         Return a batch of size `batch_size`.
         """
         assert batch_size > 0
-        samples: list[tuple[Observation, Action, SupportsFloat, Observation, bool]] = random.sample(self.buffer, batch_size)
-
-        actions_concatenated: Action = self._concat_actions([
-            sample[1] for sample in samples
-        ])
+        samples: list[tuple[Observation, Action, Action, torch.Tensor, Observation, bool]] = random.sample(self.buffer, batch_size)
         
         return (
             # Initial observations
@@ -67,27 +66,33 @@ class ReplayBuffer(Generic[Action]):
                     for sample in samples
                 ])
             ),
-            # Action
-            actions_concatenated,
+            # Previous actions
+            self._concat_actions([
+                sample[1] for sample in samples
+            ]),
+            # Actions
+            self._concat_actions([
+                sample[2] for sample in samples
+            ]),
             # Rewards
-            np.array([
-                sample[2]
+            utils.concat_tensors([
+                sample[3]
                 for sample in samples
             ]),
             # next observations
             Observation(
                 video=utils.concat_tensors([
-                    sample[3].video
+                    sample[4].video
                     for sample in samples
                 ]),
                 other=utils.concat_tensors([
-                    sample[3].other
+                    sample[4].other
                     for sample in samples
                 ]),
             ),
             # is done?
             np.array([
-                sample[4]
+                float(sample[5])
                 for sample in samples
             ])
         )
@@ -121,21 +126,35 @@ if __name__ == "__main__":
     buffer = ReplayBuffer()
     NB_STEPS = 100
 
-    obs, info = env.reset()
+    env.reset()
+    observation = None
+    action = None
     for _ in tqdm(range(NB_STEPS)):
+        prev_observation = observation
+        prev_action = action
+
         action = env.action_space.sample()
         assert isinstance(action, np.ndarray)
 
-        next_observation, reward, terminated, truncated, info = env.step(action)
+        observation, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
 
-        buffer.add_sample(obs, action, reward, next_observation, done)
+        if prev_observation is not None and prev_action is not None:
+            buffer.add_sample(prev_observation, prev_action, action, reward, observation, done)
 
     BATCH_SIZE = 10
-    observations, actions, rewards, next_observations, dones = buffer.random_batch(BATCH_SIZE)
+    (
+        observations,
+        prev_actions,
+        actions,
+        rewards,
+        next_observations,
+        dones
+    ) = buffer.random_batch(BATCH_SIZE)
 
+    assert len(prev_actions) == BATCH_SIZE
     assert len(actions) == BATCH_SIZE
-    assert len(rewards) == BATCH_SIZE
+    assert rewards.shape == (BATCH_SIZE, 1)
     assert len(dones) == BATCH_SIZE
     assert isinstance(observations, environment_transformer.Observation)
     assert isinstance(next_observations, environment_transformer.Observation)

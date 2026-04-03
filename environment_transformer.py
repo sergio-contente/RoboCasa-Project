@@ -81,10 +81,16 @@ class ActionObservationTransformer(gym.Wrapper[Observation, np.ndarray, dict, di
 
     def step(
         self, action: np.ndarray
-    ) -> tuple[Observation, SupportsFloat, bool, bool, dict[str, Any]]:
+    ) -> tuple[Observation, torch.Tensor, bool, bool, dict[str, Any]]:
         """Modifies the :attr:`env` after calling :meth:`step` using :meth:`self.observation` on the returned observations."""
         observation, reward, terminated, truncated, info = self.env.step(self.action(action))
-        return self.observation(observation), reward, terminated, truncated, info
+        return (
+            self.observation(observation),
+            utils.scalar_to_tensor(reward),
+            terminated,
+            truncated,
+            info
+        )
     
     def _sort_spaces(self, spaces):
         """

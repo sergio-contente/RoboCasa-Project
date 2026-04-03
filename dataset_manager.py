@@ -97,13 +97,15 @@ def load_dataset(env: ActionObservationTransformer, env_name: str, nb_episodes_t
         reset_based_on_episode(env, ep_metadata, model, initial_state_flatten)
 
         observation = None
+        prev_action = None
         for action in tqdm(actions):
             prev_observation = observation
             action = env.reverse_action(action)
             observation, reward, terminated, truncated, _info = env.step(action)
             done = terminated or truncated
-            if prev_observation is not None:
-                buffer.add_sample(prev_observation, action, reward, observation, done)
+            if prev_observation is not None and prev_action is not None:
+                buffer.add_sample(prev_observation, prev_action, action, reward, observation, done)
+            prev_action = action
             if done:
                 break
             
@@ -140,6 +142,6 @@ if __name__ == "__main__":
     dataset = load_dataset(env, ENV_NAME, 1)
     with imageio.get_writer(VIDEO_PATH, fps=20) as video_handler:
         print(f"=== Saving the steps in {VIDEO_PATH} ===")
-        for (obs, _, _, _, _) in tqdm(dataset.buffer):
+        for (obs, _, _, _, _, _) in tqdm(dataset.buffer):
             proper_obs = env.reverse_observation(obs)
             video_handler.append_data(proper_obs[CAMERA_NAME])
