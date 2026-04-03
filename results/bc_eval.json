@@ -1,0 +1,8 @@
+{
+  "success_rate": 0.0,
+  "avg_lid_progress": 0.0,
+  "std_lid_progress": 0.0,
+  "avg_reward": 5.850239169102878e-07,
+  "avg_episode_length": 500.0,
+  "n_episodes": 20
+}

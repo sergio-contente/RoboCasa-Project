@@ -1,87 +1,68 @@
-# RoboCasa-Project
-Project for CSC_5IA05_TA-Apprentissage pour la robotique
+# RoboCasa — Open Electric Kettle Lid
 
-## Which files does what ?
-**TODO:** This part must be filled before we send the project to the teacher so she isn't lost.
+Behavioral Cloning experiments on the `OpenElectricKettleLid` atomic task in [RoboCasa](https://robocasa.ai), using the **PandaOmron** robot.
 
-## How to setup from git ?
-After you have clone the repository, you will need to download `roboacasa` and `robosuite`.
-For that, please run the following commands in the root folder of this project:
-```bash
-git submodule init
-git submodule update --remote
+## Methods
+
+Two BC variants were trained on 50 human expert episodes (5,146 transitions):
+
+| Method | Policy | Loss |
+|---|---|---|
+| Simple BC | Deterministic MLP | MSE |
+| Imitation BC | ActorCritic (SB3) | NLL + entropy |
+
+## Results
+
+Both models converged in training but achieved **0% success rate** on 20 evaluation episodes due to covariate shift.
+
+## How to run
+
+### Simple BC
+```python
+# Train
+python train_bc.py --episodes 50 --epochs 100 --batch-size 256 --lr 3e-4
+
+# Evaluate
+from common import load_bc_checkpoint
+policy = load_bc_checkpoint('results/bc_model.pt')
 ```
 
-Then, to setup the virtual environment you have two choices.
-- Either you use [UV](https://docs.astral.sh/uv/), in that case:
-  + If you're planning to use a CPU environment for pytorch, comment these lines in `pyproject.toml`:
-    ```toml
-    { index = "pytorch-cu130" }
-    ```
-    and
-    ```toml
-    [[tool.uv.index]]
-    name = "pytorch-cu130"
-    url = "https://download.pytorch.org/whl/cu130"
-    explicit = true
-    ```
-    And uncomment these lines:
-    ```toml
-    { index = "pytorch-cpu" }
-    ```
-    and
-    ```toml
-    [[tool.uv.index]]
-    name = "pytorch-cpu"
-    url = "https://download.pytorch.org/whl/cpu"
-    explicit = true
-    ```
-  + And then, please run:
-```bash
-uv sync
+### Imitation BC
+Open and run `Colab_ImitationBC.ipynb` on Google Colab (T4 GPU recommended).
+```python
+# Reload trained policy
+import torch
+from stable_baselines3.common.policies import ActorCriticPolicy
 
-# Install the robocasa package and download assets
-uv run python -m robocasa.scripts.setup_macros              # Set up system variables.
-uv run python -m robocasa.scripts.download_kitchen_assets   # Caution: Assets to be downloaded are around 10GB.
-```
-- Or if you use `conda`, please run:
-```bash
-# Create the environment
-conda create -c conda-forge -n robocasa python=3.11
-conda activate robocasa
-
-# Install robosuite
-cd deps/robosuite
-pip install -e .
-
-# Install robocasa
-cd ../robocasa
-pip install -e .
-pip install pre-commit; pre-commit install           # Optional: set up code formatter.
-
-# Install the robocasa package and download assets
-python -m robocasa.scripts.setup_macros              # Set up system variables.
-python -m robocasa.scripts.download_kitchen_assets   # Caution: Assets to be downloaded are around 10GB.
-```
-
-To make sure your environment is properly set up, please run the sample code
-provided by the robocasa team:
-```py
-import gymnasium as gym
-import robocasa
-from robocasa.utils.env_utils import run_random_rollouts
-
-env = gym.make(
-    "robocasa/PickPlaceCounterToCabinet",
-    split="pretrain", # use 'pretrain' or 'target' kitchen scenes and objects
-    seed=0 # seed environment as needed. set seed=None to run unseeded
+ckpt = torch.load('results/imitation_bc_policy.pt', map_location='cpu')
+policy = ActorCriticPolicy(
+    observation_space=env.observation_space,
+    action_space=env.action_space,
+    lr_schedule=lambda _: 3e-4,
+    net_arch=[256, 256],
 )
-
-# run rollouts with random actions and save video
-run_random_rollouts(
-    env, num_rollouts=3, num_steps=100, video_path="test.mp4"
-)
+policy.load_state_dict(ckpt['state_dict'])
 ```
 
-If everything works, you should have a video named `test.mp4`
-of a robot shaking in various environments.
+## Installation
+```bash
+# robosuite
+git clone https://github.com/ARISE-Initiative/robosuite.git
+cd robosuite && git checkout aaa8b9b && pip install -e .
+
+# robocasa
+git clone https://github.com/robocasa/robocasa.git
+cd robocasa && git checkout 0f59111 && pip install -e .
+
+python -m robocasa.scripts.setup_macros
+python -m robocasa.scripts.download_kitchen_assets
+```
+
+## Output files
+
+| File | Description |
+|---|---|
+| `results/bc_model.pt` | Simple BC weights |
+| `results/imitation_bc_policy.pt` | Imitation BC weights + metadata |
+| `results/bc_losses.json` | Simple BC training losses |
+| `results/imitation_bc_eval.json` | Evaluation metrics |
