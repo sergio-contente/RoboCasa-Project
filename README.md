@@ -33,7 +33,7 @@ A PPO agent trained **from scratch** (no demonstrations) with dense reward shapi
 
 ## Results
 
-All approaches achieved **0% success rate** in evaluation. The task requires pressing a 2mm button, which demands extreme precision none of the policies could consistently achieve.
+All approaches achieved **0% success rate (except for GAIL with action chunking - SR = 10%)** in evaluation. The task requires pressing a 2mm button, which demands extreme precision none of the policies could consistently achieve.
 
 But we did get some good runs on other approaches...
 
