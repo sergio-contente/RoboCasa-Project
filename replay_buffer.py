@@ -37,14 +37,19 @@ class ReplayBuffer(Generic[Action]):
         action_type = type(actions[0])
         if action_type is np.ndarray:
             actions_concatenated = np.concat([
+                #pyrefly: ignore
                 np.expand_dims(act, axis=0)
                 for act in actions
             ], axis=0)
+            #pyrefly: ignore
             return actions_concatenated
+        elif action_type is torch.Tensor:
+            #pyrefly: ignore
+            return utils.concat_tensors(actions)
         elif hasattr(action_type, "concat"):
             return  action_type.concat(actions)
         else:
-            raise ValueError("We don't know how to concatenate this")
+            raise ValueError(f"We don't know how to concatenate {action_type}")
 
 
     def random_batch(self, batch_size: int) -> tuple[Observation, Action, Action, torch.Tensor, Observation, npt.NDArray[np.bool]]:
