@@ -10,7 +10,7 @@ from model.embedding import DenseEmbedding, ObservationEmbedding
 class CriticRNN(nn.Module):
     def __init__(self,
         action_shape: int,
-        video_observation_space_shape: tuple[int, int, int],
+        video_observation_space_nb_channels: int,
         other_observation_space_shape: int,
 
         observation_embedding_size: int,
@@ -20,10 +20,12 @@ class CriticRNN(nn.Module):
         rnn_class: Type[nn.Module],
         rnn_hidden_size: int,
         rnn_num_layers: int,
+
+        nb_q_estimations: int
     ):
         super(CriticRNN, self).__init__()
         self.observation_for_rnn = ObservationEmbedding(
-            video_observation_space_shape,
+            video_observation_space_nb_channels,
             other_observation_space_shape,
             observation_embedding_size
         )
@@ -37,7 +39,7 @@ class CriticRNN(nn.Module):
         )
 
         self.observation_for_output = ObservationEmbedding(
-            video_observation_space_shape,
+            video_observation_space_nb_channels,
             other_observation_space_shape,
             rnn_hidden_size
         )
@@ -55,10 +57,14 @@ class CriticRNN(nn.Module):
             batch_first=True,
             bias=True,
         )
-        self.q1_layer = nn.Linear(rnn_hidden_size, 1)
-        self.q2_layer = nn.Linear(rnn_hidden_size, 1)
 
-    def forward(self, observation: Observation, reward: SupportsFloat, previous_action: np.ndarray, action: np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
+        self.q_layers = []
+        for _ in range(nb_q_estimations):
+            self.q_layers.append(
+                nn.Linear(rnn_hidden_size, 1)
+            )
+
+    def forward(self, observation: Observation, reward: SupportsFloat, previous_action: torch.Tensor, action: torch.Tensor) -> list[torch.Tensor]:
         x = torch.concat([
             self.observation_for_rnn(observation),
             self.reward_embedding(reward),
@@ -66,7 +72,7 @@ class CriticRNN(nn.Module):
         ], dim=-1)
         hidden, _ = self.rnn(x)
         x = self.observation_for_output(observation) + self.action_for_output(action) + hidden
-        return (
-            self.q1_layer(x),
-            self.q2_layer(x)
-        )
+        return [
+            layer(x)
+            for layer in self.q_layers
+        ]

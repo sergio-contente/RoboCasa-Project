@@ -2,12 +2,10 @@ import os
 
 import gymnasium as gym
 import robocasa
-#import imageio
 import torch
-#from tqdm import tqdm
 
 from environment_transformer import ActionObservationTransformer
-from model.sac import SACAgent
+from model.sac import OneStepACAgent
 import utils
 
 VIDEO_PATH = "./test.mp4"
@@ -29,17 +27,5 @@ env = ActionObservationTransformer(
     [ "annotation.human.task_description" ]
 )
 
-sac = SACAgent(env)
+sac = OneStepACAgent(env)
 sac.learn(5)
-
-#import imageio
-#from tqdm import tqdm
-#from dataset_manager import load_dataset
-#
-#dataset = load_dataset(env, ENV_NAME, 1)
-#with imageio.get_writer(VIDEO_PATH, fps=20) as video_handler:
-#    print(f"=== Saving the steps in {VIDEO_PATH} ===")
-#
-#    for (obs, _, _, _, _) in tqdm(dataset.buffer):
-#        proper_obs = env.reverse_observation(obs)
-#        video_handler.append_data(proper_obs[CAMERA_NAME])
