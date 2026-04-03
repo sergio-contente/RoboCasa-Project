@@ -15,6 +15,10 @@ Two BC variants were trained on 50 human expert episodes (5,146 transitions):
 
 Both models converged in training but achieved **0% success rate** on 20 evaluation episodes due to covariate shift.
 
+But we did get some good runs on other approaches...
+
+![demo](demo.gif)
+
 ## How to run
 
 ### Simple BC
